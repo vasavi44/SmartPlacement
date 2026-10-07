@@ -15,7 +15,10 @@ import io.jsonwebtoken.security.Keys;
 public class JwtService {
 
     private static final String SECRET_KEY =
-            "SmartPlacementSecretKeyForJwtAuthentication2026VerySecure";
+            System.getenv().getOrDefault(
+                    "JWT_SECRET",
+                    "SmartPlacementSecretKeyForJwtAuthentication2026VerySecure"
+            );
 
     private final SecretKey key =
             Keys.hmacShaKeyFor(

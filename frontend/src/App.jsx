@@ -131,7 +131,7 @@ const skillCategories = {
   ],
 };
 
-const API = "http://localhost:8080/api";
+const API = import.meta.env.VITE_API_URL;
 
 /* =========================================================
    APP
@@ -2138,73 +2138,67 @@ const deleteRecruiterJob = async (jobId) => {
         );
       }
     };
+/* =========================================================
+   APPLY FOR JOB
+========================================================= */
 
+const openApplyModal = (job) => {
+  setSelectedJob(job);
+  setShowApplyModal(true);
+};
+
+const applyForJob = async () => {
+  const studentId =
+    studentProfile?.id ||
+    localStorage.getItem("studentId");
+
+  if (!studentId || !selectedJob?.id) {
+    setMessage("");
+    setError("Student or job information is missing.");
+    return;
+  }
+
+  try {
+    setError("");
+    setMessage("");
+
+    await axios.post(
+      `${API}/applications/student/${studentId}/job/${selectedJob.id}`
+    );
+
+    setError("");
+    setMessage("Application submitted successfully.");
+
+    setShowApplyModal(false);
+    setSelectedJob(null);
+
+    await loadApplications();
+    await loadReadiness();
+
+  } catch (err) {
+    console.error("Application error:", err);
+
+    setMessage("");
+
+    if (err.response?.status === 409) {
+      setError("You have already applied for this job.");
+    } else {
+      const responseData = err.response?.data;
+
+      const serverMessage =
+        typeof responseData === "string"
+          ? responseData
+          : responseData?.message;
+
+      setError(
+        serverMessage || "Unable to apply for this job."
+      );
+    }
+  }
+};
   /* =========================================================
-     APPLY FOR JOB
-  ========================================================= */
 
-  const openApplyModal = (
-    job
-  ) => {
-    setSelectedJob(job);
-    setShowApplyModal(true);
-  };
-
-  const applyForJob =
-    async () => {
-      const studentId =
-        studentProfile?.id ||
-        localStorage.getItem(
-          "studentId"
-        );
-
-      if (
-        !studentId ||
-        !selectedJob?.id
-      ) {
-        setError(
-          "Student or job information is missing."
-        );
-        return;
-      }
-
-      try {
-        await axios.post(
-          `${API}/applications/student/${studentId}/job/${selectedJob.id}`
-        );
-
-        setMessage(
-          "Application submitted successfully."
-        );
-
-        setShowApplyModal(false);
-        setSelectedJob(null);
-
-        await loadApplications();
-        await loadReadiness();
-      } catch (err) {
-        console.error(
-          "Application error:",
-          err
-        );
-
-        if (err.response?.status === 409) {
-  setError("You have already applied for this job.");
-} else {
-  const responseData = err.response?.data;
-
-  const serverMessage =
-    typeof responseData === "string"
-      ? responseData
-      : responseData?.message;
-
-  setError(serverMessage || "Unable to apply for this job.");
-}
-      }
-    };
-
-  /* =========================================================
-     LOGIN SCREEN
+   LOGIN SCREEN
   ========================================================= */
 
   if (!isLoggedIn) {
@@ -3023,11 +3017,9 @@ const deleteRecruiterJob = async (jobId) => {
                   <div>
 
                     <h3>
-                      {readiness?.overallScore
-                        ? `${Math.round(
-                            readiness.overallScore
-                          )}%`
-                        : "74%"}
+                      {readiness?.overallScore != null
+  ? `${Math.round(readiness.overallScore)}%`
+  : "N/A"}
                     </h3>
 
                     <p>
@@ -3115,7 +3107,9 @@ const deleteRecruiterJob = async (jobId) => {
                     <div className="progress-circle">
 
                       <strong>
-                        80%
+                        {studentProfile?.profileCompletionPercentage != null
+                          ? `${Math.round(studentProfile.profileCompletionPercentage)}%`
+                          : "N/A"}
                       </strong>
 
                     </div>
@@ -3253,7 +3247,9 @@ const deleteRecruiterJob = async (jobId) => {
                   <div>
 
                     <h3>
-                      {recruiterShortlistedCount}
+                      {recruiterShortlistedCount != null
+                        ? recruiterShortlistedCount
+                        : "N/A"}
                     </h3>
 
                     <p>
@@ -3273,7 +3269,9 @@ const deleteRecruiterJob = async (jobId) => {
                   <div>
 
                     <h3>
-                      {recruiterInterviewCount}
+                      {recruiterInterviewCount != null
+                        ? recruiterInterviewCount
+                        : "N/A"}
                     </h3>
 
                     <p>
@@ -3746,10 +3744,22 @@ const deleteRecruiterJob = async (jobId) => {
                         type="button"
                         className="secondary-button"
                         onClick={() => {
-  setShowJobForm(false);
-  setEditingJobId(null);
-  setSelectedJobSkills([]);
-  setSkillSearch("");
+  setIsEditingProfile(false);
+
+  if (studentProfile) {
+    setProfileForm({
+      studentId: studentProfile.studentId || "",
+      name: studentProfile.name || "",
+      email: studentProfile.email || "",
+      phone: studentProfile.phone || "",
+      cgpa: studentProfile.cgpa ?? "",
+      tenthPercentage: studentProfile.tenthPercentage ?? "",
+      twelfthPercentage: studentProfile.twelfthPercentage ?? "",
+      backlogs: studentProfile.backlogs ?? "",
+    });
+  }
+
+  setError("");
 }}
                       >
                         Cancel
@@ -4778,15 +4788,19 @@ const deleteRecruiterJob = async (jobId) => {
                         setShowJobForm(false);
 
                         setJobForm({
-                          jobTitle: "",
-                          location: "",
-                          description: "",
-                          minimumCgpa: "",
-                          maximumBacklogs: "",
-                          minimumTenthPercentage: "",
-                          minimumTwelfthPercentage: "",
-                          requiredSkills: [],
-                        });
+  jobTitle: "",
+  location: "",
+  description: "",
+  minimumCgpa: "",
+  maximumBacklogs: "",
+  minimumTenthPercentage: "",
+  minimumTwelfthPercentage: "",
+  status: "OPEN",
+});
+
+setEditingJobId(null);
+setSelectedJobSkills([]);
+setSkillSearch("");
                       }}
                     >
                       Cancel
@@ -4864,19 +4878,22 @@ const deleteRecruiterJob = async (jobId) => {
   
 
     <button
-      className="secondary-button"
-      onClick={() => toggleJobStatus(job)}
-    >
-      <button
+  type="button"
   className="secondary-button"
   onClick={() => editRecruiterJob(job)}
 >
   ✏️ Edit
 </button>
-      {job.status === "CLOSED"
-        ? "🔓 Reopen"
-        : "🔒 Close"}
-    </button>
+
+<button
+  type="button"
+  className="secondary-button"
+  onClick={() => toggleJobStatus(job)}
+>
+  {job.status === "CLOSED"
+    ? "🔓 Reopen"
+    : "🔒 Close"}
+</button>
 
     <button
       className="danger-button"
