@@ -2092,7 +2092,43 @@ const deleteRecruiterJob = async (jobId) => {
         );
         return;
       }
+      const handleViewResume = async () => {
+    const studentId =
+      studentProfile?.id ||
+      localStorage.getItem("studentId");
 
+    if (!studentId) {
+      setError("Student profile not found.");
+      return;
+    }
+
+    try {
+      const response = await axios.get(
+        `${API}/resumes/student/${studentId}`,
+        {
+          responseType: "blob",
+        }
+      );
+
+      const fileURL = window.URL.createObjectURL(
+        new Blob([response.data], {
+          type:
+            response.headers["content-type"] ||
+            "application/pdf",
+        })
+      );
+
+      window.open(fileURL, "_blank");
+
+      setTimeout(() => {
+        window.URL.revokeObjectURL(fileURL);
+      }, 60000);
+
+    } catch (err) {
+      console.error("Resume view error:", err);
+      setError("Unable to open your resume.");
+    }
+  };
       const formData =
         new FormData();
 
@@ -4113,40 +4149,95 @@ const applyForJob = async () => {
                   </p>
 
                 </div>
+              <div>
 
-                <div>
+  {resumeUploaded ? (
 
-                  {resumeUploaded ? (
+    <div>
+      <div className="resume-success">
+        ✅ Resume uploaded
+      </div>
+     <button
+  type="button"
+  className="shortlist-button"
+  onClick={async () => {
+    try {
+      const token = localStorage.getItem("token");
 
-                    <div className="resume-success">
-                      ✅ Resume uploaded
-                    </div>
+      const response = await fetch(
+        `${API}/resumes/student/${application.student.id}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-                  ) : (
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Resume error:", response.status, errorText);
+        alert(`Unable to open resume. Status: ${response.status}`);
+        return;
+      }
 
-                    <label className="upload-button">
+      const blob = await response.blob();
 
-                      Upload Resume
+      const url = window.URL.createObjectURL(blob);
 
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx"
-                        onChange={
-                          handleResumeUpload
-                        }
-                        hidden
-                      />
+      window.open(url, "_blank");
+    } catch (error) {
+      console.error("Resume error:", error);
+      alert(`Unable to open resume: ${error.message}`);
+    }
+  }}
+>
+  👁 View Resume
+</button>
+      <label
+        className="upload-button"
+        style={{
+          marginTop: "12px",
+          cursor: "pointer"
+        }}
+      >
+        🔄 Replace Resume
 
-                    </label>
+        <input
+          type="file"
+          accept=".pdf,.doc,.docx"
+          onChange={handleResumeUpload}
+          hidden
+        />
 
-                  )}
+      </label>
+    </div>
 
-                </div>
+  ) : (
+
+    <label className="upload-button">
+
+      Upload Resume
+
+      <input
+        type="file"
+        accept=".pdf,.doc,.docx"
+        onChange={handleResumeUpload}
+        hidden
+      />
+
+    </label>
+
+  )}
+
+</div>
+                
 
               </div>
 
             </div>
           )}
+        
 
           {/* =================================================
               COMPANY PROFILE
@@ -5628,25 +5719,46 @@ setSkillSearch("");
 
                               <div className="applicant-actions">
 
-                                <button
-                                  type="button"
-                                  className="shortlist-button"
-                                  disabled={
-                                    updatingApplicationId ===
-                                    application.id
-                                  }
-                                  onClick={() =>
-                                    updateApplicantStatus(
-                                      application.id,
-                                      "SHORTLISTED"
-                                    )
-                                  }
-                                >
-                                  {updatingApplicationId ===
-                                  application.id
-                                    ? "Updating..."
-                                    : "⭐ Shortlist"}
-                                </button>
+                                <div style={{ display: "flex", gap: "10px" }}>
+  <button
+    type="button"
+    className="shortlist-button"
+    onClick={async () => {
+      try {
+        const response = await axios.get(
+          `${API}/resumes/student/${application.student.id}`,
+          {
+            responseType: "blob",
+          }
+        );
+
+        const url = window.URL.createObjectURL(response.data);
+        window.open(url, "_blank");
+      } catch (error) {
+        console.error("Resume error:", error);
+        alert("Unable to open resume.");
+      }
+    }}
+  >
+    👁 View Resume
+  </button>
+
+  <button
+    type="button"
+    className="shortlist-button"
+    disabled={updatingApplicationId === application.id}
+    onClick={() =>
+      updateApplicantStatus(
+        application.id,
+        "SHORTLISTED"
+      )
+    }
+  >
+    {updatingApplicationId === application.id
+      ? "Updating..."
+      : "⭐ Shortlist"}
+  </button>
+</div>
 
                                 {application.status ===
                                   "SHORTLISTED" && (

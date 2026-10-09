@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -21,8 +22,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(
-            JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
@@ -34,41 +34,23 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
-        CorsConfiguration configuration =
-                new CorsConfiguration();
+        CorsConfiguration configuration = new CorsConfiguration();
 
-        String frontendUrl = System.getenv().getOrDefault(
-        "FRONTEND_URL",
-        "http://localhost:5174"
-);
-
-configuration.setAllowedOrigins(
-        List.of(frontendUrl)
-);
+        configuration.setAllowedOrigins(
+                List.of("http://localhost:5174")
+        );
 
         configuration.setAllowedMethods(
-                List.of(
-                        "GET",
-                        "POST",
-                        "PUT",
-                        "DELETE",
-                        "OPTIONS"
-                )
+                List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")
         );
 
-        configuration.setAllowedHeaders(
-                List.of("*")
-        );
-
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration(
-                "/**",
-                configuration
-        );
+        source.registerCorsConfiguration("/**", configuration);
 
         return source;
     }
@@ -78,80 +60,90 @@ configuration.setAllowedOrigins(
             HttpSecurity http) throws Exception {
 
         http
-                .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf.disable())
 
-                .cors(cors -> {})
+            .cors(cors -> cors.configurationSource(
+                    corsConfigurationSource()
+            ))
 
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
-                )
+            .sessionManagement(session ->
+                    session.sessionCreationPolicy(
+                            SessionCreationPolicy.STATELESS
+                    )
+            )
 
-                .authorizeHttpRequests(auth -> auth
+            .authorizeHttpRequests(auth -> auth
 
-                        // Login and registration are public
-                        .requestMatchers(
-                                "/api/auth/**"
-                        ).permitAll()
-// ==============================
-// INTERVIEW ACCESS
-// ==============================
+                // PUBLIC AUTHENTICATION ENDPOINTS
+                .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/auth/login",
+                        "/api/auth/register"
+                ).permitAll()
 
-// Students can view their own interviews
-.requestMatchers(
-        "/api/interviews/student/**"
-).hasRole("STUDENT")
+                // PUBLIC OPTIONS
+                .requestMatchers(HttpMethod.OPTIONS, "/**")
+                .permitAll()
 
-// Recruiters and admins can manage recruiter-side interviews
-.requestMatchers(
-        "/api/interviews",
-        "/api/interviews/application/**",
-        "/api/interviews/job/**",
-        "/api/interviews/status/**",
-        "/api/interviews/*/status",
-        "/api/interviews/*/result"
-).hasAnyRole(
-        "RECRUITER",
-        "ADMIN"
-)
-                        
-                        // ==============================
-                        // APPLICATIONS
-                        // ==============================
+                // STUDENT + RECRUITER JOB VIEWING
+                .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/jobs",
+                        "/api/jobs/**"
+                ).hasAnyRole("STUDENT", "RECRUITER")
 
-                        .requestMatchers(
-                                "/api/applications/**"
-                        ).hasAnyRole(
-                                "STUDENT",
-                                "RECRUITER",
-                                "ADMIN"
-                        )
-                        // Skills can be viewed by logged-in users
-.requestMatchers(
-        "/api/skills/**"
-)
-.hasAnyRole(
-        "STUDENT",
-        "RECRUITER",
-        "ADMIN"
-)
-                        // ==============================
-                        // OTHER APIs
-                        // ==============================
+                // RECRUITER JOB MANAGEMENT
+                .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/jobs"
+                ).hasRole("RECRUITER")
 
-                        .requestMatchers(
-                                "/api/**"
-                        ).authenticated()
+                .requestMatchers(
+                        HttpMethod.PUT,
+                        "/api/jobs/**"
+                ).hasRole("RECRUITER")
 
-                        .anyRequest().authenticated()
-                )
+                .requestMatchers(
+                        HttpMethod.DELETE,
+                        "/api/jobs/**"
+                ).hasRole("RECRUITER")
 
-                // JWT authentication filter
-                .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                );
+                // INTERVIEWS
+                .requestMatchers(
+                        "/api/interviews/student/**"
+                ).hasRole("STUDENT")
+
+                .requestMatchers(
+                        "/api/interviews",
+                        "/api/interviews/application/**",
+                        "/api/interviews/job/**",
+                        "/api/interviews/status/**",
+                        "/api/interviews/*/status",
+                        "/api/interviews/*/result"
+                ).hasRole("RECRUITER")
+
+                // APPLICATIONS
+                .requestMatchers(
+                        "/api/applications/**"
+                ).hasAnyRole("STUDENT", "RECRUITER")
+
+                // SKILLS
+                .requestMatchers(
+                        "/api/skills/**"
+                ).hasAnyRole("STUDENT", "RECRUITER")
+
+                // EVERYTHING ELSE
+                .requestMatchers("/api/**")
+                .authenticated()
+
+                .anyRequest()
+                .authenticated()
+            )
+
+            .addFilterBefore(
+                    jwtAuthenticationFilter,
+                    UsernamePasswordAuthenticationFilter.class
+            );
 
         return http.build();
     }

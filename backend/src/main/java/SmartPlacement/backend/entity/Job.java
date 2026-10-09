@@ -5,6 +5,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -15,6 +17,7 @@ public class Job {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Kept for compatibility with the existing frontend and database
     private String companyName;
 
     private String jobTitle;
@@ -31,7 +34,13 @@ public class Job {
     private Double minimumTenthPercentage;
 
     private Double minimumTwelfthPercentage;
+
     private String status = "OPEN";
+
+    // Links this job to the company that created it
+    @ManyToOne
+    @JoinColumn(name = "company_id")
+    private Company company;
 
     public Job() {
     }
@@ -118,5 +127,13 @@ public class Job {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Company getCompany() {
+        return company;
+    }
+
+    public void setCompany(Company company) {
+        this.company = company;
     }
 }

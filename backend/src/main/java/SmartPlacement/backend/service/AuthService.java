@@ -2,7 +2,8 @@ package SmartPlacement.backend.service;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
+import SmartPlacement.backend.entity.Company;
+import SmartPlacement.backend.repository.CompanyRepository;
 import SmartPlacement.backend.dto.LoginRequest;
 import SmartPlacement.backend.dto.LoginResponse;
 import SmartPlacement.backend.dto.RegisterRequest;
@@ -14,20 +15,22 @@ import SmartPlacement.backend.repository.UserRepository;
 
 @Service
 public class AuthService {
-
     private final UserRepository userRepository;
     private final StudentRepository studentRepository;
+    private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
     public AuthService(
-            UserRepository userRepository,
-            StudentRepository studentRepository,
-            PasswordEncoder passwordEncoder,
-            JwtService jwtService) {
+        UserRepository userRepository,
+        StudentRepository studentRepository,
+        CompanyRepository companyRepository,
+        PasswordEncoder passwordEncoder,
+        JwtService jwtService) {
 
         this.userRepository = userRepository;
         this.studentRepository = studentRepository;
+        this.companyRepository = companyRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
     }
@@ -91,7 +94,23 @@ public class AuthService {
 
             studentRepository.save(student);
         }
+if (role == UserRole.RECRUITER) {
 
+    Company company = new Company();
+
+    company.setCompanyName(
+            savedUser.getName()
+    );
+
+    company.setIndustry("");
+    company.setLocation("");
+    company.setDescription("");
+    company.setWebsite("");
+
+    company.setRecruiter(savedUser);
+
+    companyRepository.save(company);
+}
         return "User registered successfully";
     }
 
